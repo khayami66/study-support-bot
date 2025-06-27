@@ -1,4 +1,5 @@
 import os
+import json
 from typing import Dict, Any
 from dotenv import load_dotenv
 
@@ -92,19 +93,50 @@ class Config:
         # 必須設定の確認
         if not cls.LINE_CHANNEL_ACCESS_TOKEN:
             errors.append("LINE_CHANNEL_ACCESS_TOKENが設定されていません")
+        elif cls.LINE_CHANNEL_ACCESS_TOKEN == 'your_line_channel_access_token_here':
+            errors.append("LINE_CHANNEL_ACCESS_TOKENがデフォルト値のままです")
         
         if not cls.LINE_CHANNEL_SECRET:
             errors.append("LINE_CHANNEL_SECRETが設定されていません")
+        elif cls.LINE_CHANNEL_SECRET == 'your_line_channel_secret_here':
+            errors.append("LINE_CHANNEL_SECRETがデフォルト値のままです")
         
         if not cls.SPREADSHEET_ID:
             errors.append("SPREADSHEET_IDが設定されていません")
+        elif cls.SPREADSHEET_ID == 'your_spreadsheet_id_here':
+            errors.append("SPREADSHEET_IDがデフォルト値のままです")
+        
+        # Google Sheets設定の詳細確認
+        if not os.path.exists(cls.GOOGLE_SHEETS_CREDENTIALS_FILE):
+            errors.append(f"Google API認証情報ファイルが見つかりません: {cls.GOOGLE_SHEETS_CREDENTIALS_FILE}")
+        else:
+            try:
+                # 認証情報ファイルの内容を確認
+                with open(cls.GOOGLE_SHEETS_CREDENTIALS_FILE, 'r') as f:
+                    cred_data = json.load(f)
+                
+                # 必要なフィールドの確認
+                required_fields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email']
+                missing_fields = [field for field in required_fields if field not in cred_data]
+                
+                if missing_fields:
+                    errors.append(f"認証情報ファイルに必要なフィールドが不足しています: {missing_fields}")
+                elif cred_data.get('type') != 'service_account':
+                    errors.append("認証情報ファイルのタイプが'service_account'ではありません")
+                else:
+                    warnings.append(f"認証情報ファイル: {cls.GOOGLE_SHEETS_CREDENTIALS_FILE} (プロジェクト: {cred_data.get('project_id', '不明')})")
+                    
+            except json.JSONDecodeError:
+                errors.append("認証情報ファイルが有効なJSON形式ではありません")
+            except Exception as e:
+                errors.append(f"認証情報ファイルの読み込みエラー: {e}")
         
         # 警告の確認
         if cls.FLASK_SECRET_KEY == 'default-secret-key-change-in-production':
             warnings.append("本番環境ではFLASK_SECRET_KEYを変更してください")
         
-        if not os.path.exists(cls.GOOGLE_SHEETS_CREDENTIALS_FILE):
-            errors.append(f"Google API認証情報ファイルが見つかりません: {cls.GOOGLE_SHEETS_CREDENTIALS_FILE}")
+        if cls.FLASK_ENV == 'development':
+            warnings.append("本番環境ではFLASK_ENVを'production'に設定してください")
         
         return {
             'valid': len(errors) == 0,

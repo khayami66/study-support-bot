@@ -30,10 +30,21 @@ def initialize_sheets_handler():
     """スプレッドシートハンドラーを初期化"""
     global sheets_handler
     try:
+        # 設定の確認
         if not Config.SPREADSHEET_ID or Config.SPREADSHEET_ID == 'your_spreadsheet_id_here':
-            logger.warning("Google Sheets設定が不完全です。スプレッドシート機能は無効化されます。")
+            logger.error("SPREADSHEET_IDが設定されていません。環境変数を確認してください。")
             return False
         
+        if not os.path.exists(Config.GOOGLE_SHEETS_CREDENTIALS_FILE):
+            logger.error(f"Google API認証情報ファイルが見つかりません: {Config.GOOGLE_SHEETS_CREDENTIALS_FILE}")
+            return False
+        
+        logger.info(f"スプレッドシート設定:")
+        logger.info(f"  - スプレッドシートID: {Config.SPREADSHEET_ID}")
+        logger.info(f"  - ワークシート名: {Config.WORKSHEET_NAME}")
+        logger.info(f"  - 認証情報ファイル: {Config.GOOGLE_SHEETS_CREDENTIALS_FILE}")
+        
+        # スプレッドシートハンドラーの作成
         sheets_handler = SheetsHandler(
             Config.GOOGLE_SHEETS_CREDENTIALS_FILE, 
             Config.SPREADSHEET_ID, 
@@ -42,14 +53,27 @@ def initialize_sheets_handler():
         
         # スプレッドシートの初期化
         if sheets_handler.initialize_sheet():
-            logger.info("スプレッドシートハンドラーの初期化が完了しました")
-            return True
+            logger.info("✅ スプレッドシートハンドラーの初期化が完了しました")
+            
+            # 接続テスト
+            try:
+                # テスト用のデータ取得（空の結果でもエラーにならない）
+                test_range = f"{Config.WORKSHEET_NAME}!A1"
+                sheets_handler.service.spreadsheets().values().get(
+                    spreadsheetId=Config.SPREADSHEET_ID,
+                    range=test_range
+                ).execute()
+                logger.info("✅ スプレッドシートへの接続テストが成功しました")
+                return True
+            except Exception as e:
+                logger.error(f"❌ スプレッドシートへの接続テストに失敗: {e}")
+                return False
         else:
-            logger.error("スプレッドシートの初期化に失敗しました")
+            logger.error("❌ スプレッドシートの初期化に失敗しました")
             return False
             
     except Exception as e:
-        logger.error(f"スプレッドシートハンドラーの初期化エラー: {e}")
+        logger.error(f"❌ スプレッドシートハンドラーの初期化エラー: {e}")
         return False
 
 @app.route("/callback", methods=['POST'])
@@ -195,9 +219,32 @@ def config_status():
     validation = Config.validate_config()
     summary = Config.get_config_summary()
     
+    # スプレッドシートの接続状況を詳細に確認
+    sheets_status = {
+        "connected": sheets_handler is not None,
+        "credentials_file_exists": os.path.exists(Config.GOOGLE_SHEETS_CREDENTIALS_FILE),
+        "spreadsheet_id_configured": bool(Config.SPREADSHEET_ID and Config.SPREADSHEET_ID != 'your_spreadsheet_id_here'),
+        "worksheet_name": Config.WORKSHEET_NAME
+    }
+    
+    if sheets_handler:
+        try:
+            # 接続テスト
+            test_range = f"{Config.WORKSHEET_NAME}!A1"
+            sheets_handler.service.spreadsheets().values().get(
+                spreadsheetId=Config.SPREADSHEET_ID,
+                range=test_range
+            ).execute()
+            sheets_status["connection_test"] = "success"
+        except Exception as e:
+            sheets_status["connection_test"] = f"failed: {str(e)}"
+    else:
+        sheets_status["connection_test"] = "not_initialized"
+    
     return jsonify({
         "validation": validation,
         "summary": summary,
+        "sheets_status": sheets_status,
         "sheets_connected": sheets_handler is not None
     })
 
@@ -223,24 +270,44 @@ def index():
     """
 
 if __name__ == "__main__":
+    print("=" * 60)
+    print("LINE Point System 起動中...")
+    print("=" * 60)
+    
     # 設定の検証
     validation = Config.validate_config()
     if not validation['valid']:
-        logger.error("設定エラー:")
+        print("❌ 設定エラー:")
         for error in validation['errors']:
-            logger.error(f"  - {error}")
-        logger.warning("一部の機能が制限されます")
+            print(f"  - {error}")
+        print("\n⚠️  一部の機能が制限されます")
+    else:
+        print("✅ 設定の検証が完了しました")
     
     if validation['warnings']:
-        logger.warning("設定警告:")
+        print("\n⚠️  設定警告:")
         for warning in validation['warnings']:
-            logger.warning(f"  - {warning}")
+            print(f"  - {warning}")
+    
+    print("\n" + "=" * 60)
+    print("スプレッドシート設定の確認中...")
+    print("=" * 60)
     
     # スプレッドシートハンドラーの初期化
     if initialize_sheets_handler():
-        logger.info("アプリケーションが正常に起動しました")
+        print("✅ アプリケーションが正常に起動しました")
+        print("📊 スプレッドシート機能: 有効")
     else:
-        logger.warning("スプレッドシートハンドラーの初期化に失敗しました")
+        print("❌ スプレッドシートハンドラーの初期化に失敗しました")
+        print("📊 スプレッドシート機能: 無効")
+        print("\n🔧 設定を確認してください:")
+        print("  1. SPREADSHEET_IDが正しく設定されているか")
+        print("  2. credentials.jsonファイルが存在するか")
+        print("  3. スプレッドシートへのアクセス権限があるか")
+    
+    print("\n" + "=" * 60)
+    print("アプリケーション起動中...")
+    print("=" * 60)
     
     # アプリケーション起動
     app.run(host=Config.HOST, port=Config.PORT, debug=Config.DEBUG) 

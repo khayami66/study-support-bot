@@ -67,7 +67,7 @@ class SheetsHandler:
         """
         try:
             # ユーザーの記録を検索
-            range_name = f"{self.worksheet_name}!A:D"
+            range_name = f"{self.worksheet_name}!A:E"
             result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
                 range=range_name
@@ -80,12 +80,12 @@ class SheetsHandler:
             # ヘッダー行をスキップ
             total_points = 0
             for row in values[1:]:  # ヘッダーを除く
-                if len(row) >= 4 and row[0] == user_id:  # user_id列が存在する場合
+                if len(row) >= 5 and row[0] == user_id:  # 新しい形式（user_id列あり）
                     try:
                         total_points += int(row[3])  # ポイント列
                     except (ValueError, IndexError):
                         continue
-                elif len(row) >= 3:  # 従来の形式（user_id列なし）
+                elif len(row) >= 4:  # 従来の形式（user_id列なし）
                     try:
                         total_points += int(row[2])  # ポイント列
                     except (ValueError, IndexError):
@@ -114,12 +114,12 @@ class SheetsHandler:
             current_total = self.get_total_points(user_id)
             new_total = current_total + points
             
-            # 記録データの準備
+            # 記録データの準備（新しい形式：user_id, 日時, 行動, ポイント, 合計ポイント）
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            row_data = [timestamp, action, points, new_total]
+            row_data = [user_id, timestamp, action, points, new_total]
             
             # スプレッドシートに追加
-            range_name = f"{self.worksheet_name}!A:D"
+            range_name = f"{self.worksheet_name}!A:E"
             body = {
                 'values': [row_data]
             }
@@ -132,7 +132,7 @@ class SheetsHandler:
                 body=body
             ).execute()
             
-            logger.info(f"行動記録完了: {action} (+{points}pt)")
+            logger.info(f"行動記録完了: {user_id} - {action} (+{points}pt)")
             return True
             
         except HttpError as e:
@@ -151,7 +151,7 @@ class SheetsHandler:
             行動履歴のリスト
         """
         try:
-            range_name = f"{self.worksheet_name}!A:D"
+            range_name = f"{self.worksheet_name}!A:E"
             result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
                 range=range_name
@@ -164,7 +164,15 @@ class SheetsHandler:
             # ヘッダー行をスキップして、ユーザーの記録のみを抽出
             history = []
             for row in values[1:]:
-                if len(row) >= 4 and row[0] == user_id:
+                if len(row) >= 5 and row[0] == user_id:  # 新しい形式
+                    history.append({
+                        'timestamp': row[1],
+                        'action': row[2],
+                        'points': int(row[3]),
+                        'total': int(row[4])
+                    })
+                elif len(row) >= 4:  # 従来の形式（user_id列なし）
+                    # 従来の形式の場合は、すべての記録を対象とする
                     history.append({
                         'timestamp': row[0],
                         'action': row[1],
@@ -187,11 +195,11 @@ class SheetsHandler:
             初期化成功時True
         """
         try:
-            # ヘッダー行の設定
-            headers = ['日時', '行動', 'ポイント', '合計ポイント']
+            # ヘッダー行の設定（新しい形式）
+            headers = ['ユーザーID', '日時', '行動', 'ポイント', '合計ポイント']
             
             # 既存のデータを確認
-            range_name = f"{self.worksheet_name}!A:D"
+            range_name = f"{self.worksheet_name}!A:E"
             result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
                 range=range_name
@@ -212,7 +220,24 @@ class SheetsHandler:
                     body=body
                 ).execute()
                 
-                logger.info("スプレッドシートを初期化しました")
+                logger.info("スプレッドシートを初期化しました（新しい形式）")
+            else:
+                # 既存のヘッダーを確認し、必要に応じて更新
+                existing_headers = values[0] if values else []
+                if len(existing_headers) < 5 or existing_headers[0] != 'ユーザーID':
+                    # ヘッダーを更新
+                    body = {
+                        'values': [headers]
+                    }
+                    
+                    self.service.spreadsheets().values().update(
+                        spreadsheetId=self.spreadsheet_id,
+                        range=f"{self.worksheet_name}!A1",
+                        valueInputOption='RAW',
+                        body=body
+                    ).execute()
+                    
+                    logger.info("スプレッドシートのヘッダーを更新しました")
             
             return True
             
