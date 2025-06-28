@@ -30,9 +30,21 @@ def initialize_sheets_handler():
     """スプレッドシートハンドラーを初期化"""
     global sheets_handler
     try:
+        logger.info("スプレッドシートハンドラーの初期化を開始...")
+        
         if not Config.SPREADSHEET_ID or Config.SPREADSHEET_ID == 'your_spreadsheet_id_here':
             logger.warning("Google Sheets設定が不完全です。スプレッドシート機能は無効化されます。")
             return False
+        
+        logger.info(f"認証情報ファイル: {Config.GOOGLE_SHEETS_CREDENTIALS_FILE}")
+        logger.info(f"スプレッドシートID: {Config.SPREADSHEET_ID}")
+        logger.info(f"ワークシート名: {Config.WORKSHEET_NAME}")
+        
+        # 認証情報ファイルの存在確認
+        if os.path.exists(Config.GOOGLE_SHEETS_CREDENTIALS_FILE):
+            logger.info("認証情報ファイルが存在します")
+        else:
+            logger.warning(f"認証情報ファイルが見つかりません: {Config.GOOGLE_SHEETS_CREDENTIALS_FILE}")
         
         sheets_handler = SheetsHandler(
             Config.GOOGLE_SHEETS_CREDENTIALS_FILE, 
@@ -50,6 +62,8 @@ def initialize_sheets_handler():
             
     except Exception as e:
         logger.error(f"スプレッドシートハンドラーの初期化エラー: {e}")
+        import traceback
+        logger.error(f"詳細エラー: {traceback.format_exc()}")
         return False
 
 @app.route("/callback", methods=['POST'])
@@ -223,6 +237,10 @@ def index():
     """
 
 if __name__ == "__main__":
+    logger.info("="*60)
+    logger.info("LINE Point System 起動中...")
+    logger.info("="*60)
+    
     # 設定の検証
     validation = Config.validate_config()
     if not validation['valid']:
@@ -230,17 +248,38 @@ if __name__ == "__main__":
         for error in validation['errors']:
             logger.error(f"  - {error}")
         logger.warning("一部の機能が制限されます")
+    else:
+        logger.info("✅ 設定検証が完了しました")
     
     if validation['warnings']:
         logger.warning("設定警告:")
         for warning in validation['warnings']:
             logger.warning(f"  - {warning}")
     
+    # 設定概要の表示
+    summary = Config.get_config_summary()
+    logger.info("設定概要:")
+    logger.info(f"  - Flask環境: {summary['flask_env']}")
+    logger.info(f"  - デバッグモード: {summary['debug']}")
+    logger.info(f"  - ホスト: {summary['host']}:{summary['port']}")
+    logger.info(f"  - ワークシート名: {summary['worksheet_name']}")
+    logger.info(f"  - 認証情報ファイル: {summary['credentials_file']}")
+    logger.info(f"  - 認証情報作成: {summary['credentials_created']}")
+    logger.info(f"  - LINE設定: {summary['line_configured']}")
+    logger.info(f"  - スプレッドシート設定: {summary['sheets_configured']}")
+    logger.info(f"  - 認証情報設定: {summary['credentials_configured']}")
+    logger.info(f"  - ポイントルール数: {summary['point_rules_count']}")
+    
     # スプレッドシートハンドラーの初期化
+    logger.info("\nスプレッドシートハンドラーの初期化を開始...")
     if initialize_sheets_handler():
-        logger.info("アプリケーションが正常に起動しました")
+        logger.info("✅ スプレッドシートハンドラーの初期化が完了しました")
+        logger.info("✅ アプリケーションが正常に起動しました")
     else:
-        logger.warning("スプレッドシートハンドラーの初期化に失敗しました")
+        logger.warning("❌ スプレッドシートハンドラーの初期化に失敗しました")
+        logger.warning("スプレッドシート機能は利用できません")
+    
+    logger.info("="*60)
     
     # アプリケーション起動
     app.run(host=Config.HOST, port=Config.PORT, debug=Config.DEBUG) 

@@ -39,22 +39,34 @@ class SheetsHandler:
                 'https://www.googleapis.com/auth/drive'
             ]
             
-            # 認証情報の作成
+            credentials = None
+            
+            # 1. まずファイルから認証情報を読み込みを試行
             if os.path.exists(self.credentials_file):
-                # ファイルから認証情報を読み込み
-                credentials = Credentials.from_service_account_file(
-                    self.credentials_file, scopes=SCOPES
-                )
-            else:
-                # Base64認証情報から直接認証情報を作成
+                try:
+                    logger.info(f"認証情報ファイルから読み込み: {self.credentials_file}")
+                    credentials = Credentials.from_service_account_file(
+                        self.credentials_file, scopes=SCOPES
+                    )
+                    logger.info("ファイルからの認証情報読み込みが完了しました")
+                except Exception as e:
+                    logger.warning(f"ファイルからの認証情報読み込みに失敗: {e}")
+            
+            # 2. ファイルが存在しない場合、Base64認証情報から直接認証情報を作成
+            if not credentials:
                 google_credentials_base64 = os.getenv('GOOGLE_CREDENTIALS_BASE64')
                 if not google_credentials_base64:
                     raise ValueError("認証情報ファイルが見つからず、GOOGLE_CREDENTIALS_BASE64も設定されていません")
                 
                 try:
+                    logger.info("Base64認証情報から認証情報を作成中...")
                     # Base64デコード
                     credentials_json = base64.b64decode(google_credentials_base64).decode('utf-8')
                     credentials_info = json.loads(credentials_json)
+                    
+                    # 認証情報の妥当性を確認
+                    if 'type' not in credentials_info or credentials_info['type'] != 'service_account':
+                        raise ValueError("無効なサービスアカウント認証情報です")
                     
                     # 認証情報の作成
                     credentials = Credentials.from_service_account_info(

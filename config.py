@@ -4,6 +4,11 @@ from dotenv import load_dotenv
 import base64
 import json
 import tempfile
+import logging
+
+# ログ設定
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # 環境変数の読み込み
 load_dotenv()
@@ -14,10 +19,15 @@ CREDENTIALS_FILE_PATH = os.getenv('GOOGLE_SHEETS_CREDENTIALS_FILE', 'credentials
 
 def create_credentials_file():
     """Base64認証情報からcredentials.jsonファイルを作成"""
-    if GOOGLE_CREDENTIALS_BASE64 and not os.path.exists(CREDENTIALS_FILE_PATH):
+    if GOOGLE_CREDENTIALS_BASE64:
         try:
             # Base64デコード
             credentials_json = base64.b64decode(GOOGLE_CREDENTIALS_BASE64).decode('utf-8')
+            
+            # 認証情報の妥当性を確認
+            credentials_info = json.loads(credentials_json)
+            if 'type' not in credentials_info or credentials_info['type'] != 'service_account':
+                raise ValueError("無効なサービスアカウント認証情報です")
             
             # 一時ファイルとして作成（Render環境での権限問題を回避）
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
@@ -26,13 +36,25 @@ def create_credentials_file():
             
             # 環境変数を更新
             os.environ['GOOGLE_SHEETS_CREDENTIALS_FILE'] = temp_credentials_path
-            print(f"認証情報ファイルを作成しました: {temp_credentials_path}")
+            logger.info(f"認証情報ファイルを作成しました: {temp_credentials_path}")
+            
+            # ファイルの存在を確認
+            if os.path.exists(temp_credentials_path):
+                logger.info("認証情報ファイルの作成が確認されました")
+                return True
+            else:
+                logger.error("認証情報ファイルの作成に失敗しました")
+                return False
             
         except Exception as e:
-            print(f"credentials.jsonの生成に失敗しました: {e}")
+            logger.error(f"credentials.jsonの生成に失敗しました: {e}")
+            return False
+    else:
+        logger.warning("GOOGLE_CREDENTIALS_BASE64が設定されていません")
+        return False
 
 # 認証情報ファイルの作成
-create_credentials_file()
+credentials_created = create_credentials_file()
 
 class Config:
     """アプリケーション設定を管理するクラス"""
@@ -135,6 +157,8 @@ class Config:
         # 認証情報の確認
         if not GOOGLE_CREDENTIALS_BASE64:
             errors.append("GOOGLE_CREDENTIALS_BASE64が設定されていません")
+        elif not credentials_created:
+            errors.append("認証情報ファイルの作成に失敗しました")
         elif not os.path.exists(cls.GOOGLE_SHEETS_CREDENTIALS_FILE):
             errors.append(f"Google API認証情報ファイルが見つかりません: {cls.GOOGLE_SHEETS_CREDENTIALS_FILE}")
         
@@ -159,6 +183,7 @@ class Config:
             'port': cls.PORT,
             'worksheet_name': cls.WORKSHEET_NAME,
             'credentials_file': cls.GOOGLE_SHEETS_CREDENTIALS_FILE,
+            'credentials_created': credentials_created,
             'line_configured': bool(cls.LINE_CHANNEL_ACCESS_TOKEN and cls.LINE_CHANNEL_SECRET),
             'sheets_configured': bool(cls.SPREADSHEET_ID),
             'credentials_configured': bool(GOOGLE_CREDENTIALS_BASE64),
