@@ -16,15 +16,61 @@ LINEメッセージに応じてポイントを付与し、Googleスプレッド�
 - `#スタスタ` → 3pt（スタスタで運動）
 - `#ごみ捨て` → 5pt（ごみ捨てを完了）
 
-## セットアップ手順
+## デプロイ方法
 
-### 1. 依存関係のインストール
+### Renderでのデプロイ（推奨）
+
+#### 1. Renderアカウントの作成
+1. [Render](https://render.com/)にアクセスしてアカウントを作成
+2. GitHubアカウントと連携
+
+#### 2. 新しいWebサービスを作成
+1. Renderダッシュボードで「New +」→「Web Service」を選択
+2. GitHubリポジトリを選択
+3. 以下の設定を行う：
+   - **Name**: `line-point-system`
+   - **Environment**: `Python 3`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn main:app --bind 0.0.0.0:$PORT`
+
+#### 3. 環境変数の設定
+Renderダッシュボードの「Environment」タブで以下の環境変数を設定：
+
+```
+LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token_here
+LINE_CHANNEL_SECRET=your_line_channel_secret_here
+GOOGLE_CREDENTIALS_BASE64=your_base64_encoded_credentials_here
+SPREADSHEET_ID=your_spreadsheet_id_here
+WORKSHEET_NAME=ポイント記録
+FLASK_ENV=production
+HOST=0.0.0.0
+```
+
+#### 4. Google認証情報のBase64エンコード
+1. `credentials.json`ファイルをBase64エンコード：
+   ```bash
+   # macOS/Linux
+   base64 -i credentials.json | tr -d '\n'
+   
+   # Windows (PowerShell)
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("credentials.json"))
+   ```
+2. 出力された文字列を`GOOGLE_CREDENTIALS_BASE64`環境変数に設定
+
+#### 5. LINE Webhook URLの設定
+1. Renderでデプロイが完了したら、表示されるURLをコピー
+2. LINE DevelopersコンソールでWebhook URLを設定：
+   `https://your-app-name.onrender.com/callback`
+
+### ローカル開発環境でのセットアップ
+
+#### 1. 依存関係のインストール
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. 環境変数の設定
+#### 2. 環境変数の設定
 
 `env_example.txt`を参考に、`.env`ファイルを作成してください：
 
@@ -34,7 +80,7 @@ LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token_here
 LINE_CHANNEL_SECRET=your_line_channel_secret_here
 
 # Google Sheets API設定
-GOOGLE_SHEETS_CREDENTIALS_FILE=credentials.json
+GOOGLE_CREDENTIALS_BASE64=your_base64_encoded_credentials_here
 SPREADSHEET_ID=your_spreadsheet_id_here
 WORKSHEET_NAME=ポイント記録
 
@@ -43,17 +89,17 @@ FLASK_SECRET_KEY=your_secret_key_here
 FLASK_ENV=development
 ```
 
-### 3. LINE Messaging APIの設定
+#### 3. LINE Messaging APIの設定
 
 1. [LINE Developers Console](https://developers.line.biz/)にアクセス
 2. 新しいプロバイダーとチャネルを作成
 3. Messaging APIチャネルを作成
 4. チャネルアクセストークンとチャネルシークレットを取得
-5. Webhook URLを設定（例：`https://your-domain.com/callback`）
+5. Webhook URLを設定（ローカル開発時はngrok等を使用）
 
-### 4. Google Sheets APIの設定（詳細手順）
+#### 4. Google Sheets APIの設定（詳細手順）
 
-#### 4.1 Google Cloud Consoleでの設定
+##### 4.1 Google Cloud Consoleでの設定
 
 1. [Google Cloud Console](https://console.cloud.google.com/)にアクセス
 2. 新しいプロジェクトを作成（または既存のプロジェクトを選択）
@@ -61,14 +107,14 @@ FLASK_ENV=development
 4. 「Google Sheets API」を検索して有効化
 5. 「APIとサービス」→「認証情報」を選択
 
-#### 4.2 サービスアカウントの作成
+##### 4.2 サービスアカウントの作成
 
 1. 「認証情報を作成」→「サービスアカウント」を選択
 2. サービスアカウント名を入力（例：`line-point-system`）
 3. 「キーを作成」→「JSON」を選択
 4. ダウンロードしたファイルを`credentials.json`として保存
 
-#### 4.3 Googleスプレッドシートの設定
+##### 4.3 Googleスプレッドシートの設定
 
 1. [Google Sheets](https://sheets.google.com/)で新しいスプレッドシートを作成
 2. スプレッドシートのURLからIDを取得：
@@ -78,7 +124,7 @@ FLASK_ENV=development
 4. `credentials.json`内の`client_email`の値をコピー
 5. そのメールアドレスを追加し、「編集者」権限を付与
 
-### 5. アプリケーションの起動
+#### 5. アプリケーションの起動
 
 ```bash
 python main.py
@@ -121,6 +167,7 @@ study_support/
 ├── point_system.py      # ポイントシステム管理
 ├── config.py           # 設定管理
 ├── requirements.txt     # Python依存関係
+├── render.yaml         # Renderデプロイ設定
 ├── env_example.txt      # 環境変数テンプレート
 └── README.md           # このファイル
 ```
@@ -152,7 +199,7 @@ study_support/
 **症状**: 「スプレッドシートの設定が完了していません」というメッセージが表示される
 
 **解決方法**:
-1. `credentials.json`ファイルが正しい場所にあるか確認
+1. `GOOGLE_CREDENTIALS_BASE64`環境変数が正しく設定されているか確認
 2. スプレッドシートIDが正しく設定されているか確認
 3. サービスアカウントにスプレッドシートの編集権限があるか確認
 4. `/config`エンドポイントで詳細なエラー情報を確認
@@ -171,9 +218,9 @@ study_support/
 **症状**: アプリケーション起動時に設定エラーが表示される
 
 **解決方法**:
-1. `.env`ファイルが正しく作成されているか確認
-2. 全ての必要な環境変数が設定されているか確認
-3. デフォルト値（`your_xxx_here`）が実際の値に変更されているか確認
+1. 全ての必要な環境変数が設定されているか確認
+2. デフォルト値（`your_xxx_here`）が実際の値に変更されているか確認
+3. Base64エンコードが正しく行われているか確認
 
 #### 4. Google Sheets API接続エラー
 
@@ -181,14 +228,24 @@ study_support/
 
 **解決方法**:
 1. Google Cloud ConsoleでGoogle Sheets APIが有効化されているか確認
-2. サービスアカウントキーが正しくダウンロードされているか確認
+2. サービスアカウントキーが正しくBase64エンコードされているか確認
 3. スプレッドシートにサービスアカウントの編集権限が付与されているか確認
+
+#### 5. Renderデプロイエラー
+
+**症状**: Renderでのデプロイが失敗する
+
+**解決方法**:
+1. `requirements.txt`に必要な依存関係が含まれているか確認
+2. 環境変数が正しく設定されているか確認
+3. ビルドログでエラーの詳細を確認
 
 ### デバッグ方法
 
 1. アプリケーション起動時のログを確認
 2. `/config`エンドポイントで設定状況を確認
 3. `/health`エンドポイントでアプリケーションの状態を確認
+4. Renderのログでデプロイ状況を確認
 
 ## ライセンス
 

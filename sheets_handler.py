@@ -1,5 +1,6 @@
 import os
 import json
+import base64
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from google.oauth2.service_account import Credentials
@@ -32,10 +33,6 @@ class SheetsHandler:
     def _authenticate(self):
         """Google Sheets APIの認証を行う"""
         try:
-            # 認証情報の読み込み
-            if not os.path.exists(self.credentials_file):
-                raise FileNotFoundError(f"認証情報ファイルが見つかりません: {self.credentials_file}")
-            
             # スコープの設定
             SCOPES = [
                 'https://www.googleapis.com/auth/spreadsheets',
@@ -43,9 +40,31 @@ class SheetsHandler:
             ]
             
             # 認証情報の作成
-            credentials = Credentials.from_service_account_file(
-                self.credentials_file, scopes=SCOPES
-            )
+            if os.path.exists(self.credentials_file):
+                # ファイルから認証情報を読み込み
+                credentials = Credentials.from_service_account_file(
+                    self.credentials_file, scopes=SCOPES
+                )
+            else:
+                # Base64認証情報から直接認証情報を作成
+                google_credentials_base64 = os.getenv('GOOGLE_CREDENTIALS_BASE64')
+                if not google_credentials_base64:
+                    raise ValueError("認証情報ファイルが見つからず、GOOGLE_CREDENTIALS_BASE64も設定されていません")
+                
+                try:
+                    # Base64デコード
+                    credentials_json = base64.b64decode(google_credentials_base64).decode('utf-8')
+                    credentials_info = json.loads(credentials_json)
+                    
+                    # 認証情報の作成
+                    credentials = Credentials.from_service_account_info(
+                        credentials_info, scopes=SCOPES
+                    )
+                    logger.info("Base64認証情報から認証が完了しました")
+                    
+                except Exception as e:
+                    logger.error(f"Base64認証情報の処理に失敗: {e}")
+                    raise
             
             # サービスオブジェクトの作成
             self.service = build('sheets', 'v4', credentials=credentials)

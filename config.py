@@ -2,6 +2,8 @@ import os
 from typing import Dict, Any
 from dotenv import load_dotenv
 import base64
+import json
+import tempfile
 
 # 環境変数の読み込み
 load_dotenv()
@@ -9,12 +11,28 @@ load_dotenv()
 # credentials.jsonのBase64デコード生成処理
 GOOGLE_CREDENTIALS_BASE64 = os.getenv('GOOGLE_CREDENTIALS_BASE64')
 CREDENTIALS_FILE_PATH = os.getenv('GOOGLE_SHEETS_CREDENTIALS_FILE', 'credentials.json')
-if GOOGLE_CREDENTIALS_BASE64 and not os.path.exists(CREDENTIALS_FILE_PATH):
-    try:
-        with open(CREDENTIALS_FILE_PATH, 'wb') as f:
-            f.write(base64.b64decode(GOOGLE_CREDENTIALS_BASE64))
-    except Exception as e:
-        print(f"credentials.jsonの生成に失敗しました: {e}")
+
+def create_credentials_file():
+    """Base64認証情報からcredentials.jsonファイルを作成"""
+    if GOOGLE_CREDENTIALS_BASE64 and not os.path.exists(CREDENTIALS_FILE_PATH):
+        try:
+            # Base64デコード
+            credentials_json = base64.b64decode(GOOGLE_CREDENTIALS_BASE64).decode('utf-8')
+            
+            # 一時ファイルとして作成（Render環境での権限問題を回避）
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+                temp_file.write(credentials_json)
+                temp_credentials_path = temp_file.name
+            
+            # 環境変数を更新
+            os.environ['GOOGLE_SHEETS_CREDENTIALS_FILE'] = temp_credentials_path
+            print(f"認証情報ファイルを作成しました: {temp_credentials_path}")
+            
+        except Exception as e:
+            print(f"credentials.jsonの生成に失敗しました: {e}")
+
+# 認証情報ファイルの作成
+create_credentials_file()
 
 class Config:
     """アプリケーション設定を管理するクラス"""
@@ -114,7 +132,10 @@ class Config:
         if cls.FLASK_SECRET_KEY == 'default-secret-key-change-in-production':
             warnings.append("本番環境ではFLASK_SECRET_KEYを変更してください")
         
-        if not os.path.exists(cls.GOOGLE_SHEETS_CREDENTIALS_FILE):
+        # 認証情報の確認
+        if not GOOGLE_CREDENTIALS_BASE64:
+            errors.append("GOOGLE_CREDENTIALS_BASE64が設定されていません")
+        elif not os.path.exists(cls.GOOGLE_SHEETS_CREDENTIALS_FILE):
             errors.append(f"Google API認証情報ファイルが見つかりません: {cls.GOOGLE_SHEETS_CREDENTIALS_FILE}")
         
         return {
@@ -140,5 +161,6 @@ class Config:
             'credentials_file': cls.GOOGLE_SHEETS_CREDENTIALS_FILE,
             'line_configured': bool(cls.LINE_CHANNEL_ACCESS_TOKEN and cls.LINE_CHANNEL_SECRET),
             'sheets_configured': bool(cls.SPREADSHEET_ID),
+            'credentials_configured': bool(GOOGLE_CREDENTIALS_BASE64),
             'point_rules_count': len(cls.DEFAULT_POINT_RULES)
         } 

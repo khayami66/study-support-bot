@@ -5,8 +5,10 @@ LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token_here
 LINE_CHANNEL_SECRET=your_line_channel_secret_here
 
 # Google Sheets API設定
-# Google Cloud Consoleでダウンロードしたサービスアカウントキーファイルのパス
-GOOGLE_SHEETS_CREDENTIALS_FILE=credentials.json
+# credentials.jsonファイルをBase64エンコードした文字列
+# 以下のコマンドで生成できます：
+# base64 -i credentials.json | tr -d '\n'
+GOOGLE_CREDENTIALS_BASE64=your_base64_encoded_credentials_here
 # GoogleスプレッドシートのID（URLの /d/ と /edit の間の文字列）
 SPREADSHEET_ID=your_spreadsheet_id_here
 # スプレッドシート内のワークシート名
@@ -16,7 +18,9 @@ WORKSHEET_NAME=ポイント記録
 # Flaskアプリケーションのシークレットキー（本番環境では必ず変更）
 FLASK_SECRET_KEY=your_secret_key_here
 # 環境設定（development/production）
-FLASK_ENV=development
+FLASK_ENV=production
+HOST=0.0.0.0
+PORT=5000
 
 # 設定手順:
 # 1. LINE Developersコンソールでチャンネルを作成し、アクセストークンとシークレットを取得
@@ -24,4 +28,9 @@ FLASK_ENV=development
 # 3. サービスアカウントを作成し、credentials.jsonをダウンロード
 # 4. Googleスプレッドシートを作成し、サービスアカウントのメールアドレスに編集権限を付与
 # 5. スプレッドシートのURLからIDを抽出（例: https://docs.google.com/spreadsheets/d/1ABC...XYZ/edit → 1ABC...XYZ）
-# 6. このファイルを.envにリネームし、実際の値を設定 
+# 6. このファイルを.envにリネームし、実際の値を設定
+
+# Render用の設定
+# Renderでは以下の環境変数が自動で設定されます：
+# - PORT: アプリケーションのポート番号
+# - RENDER: true（Render環境であることを示す） 

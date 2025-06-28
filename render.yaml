@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: line-point-system
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: GOOGLE_CREDENTIALS_BASE64
+        sync: false
+      - key: SPREADSHEET_ID
+        sync: false
+      - key: WORKSHEET_NAME
+        value: ポイント記録
+      - key: FLASK_SECRET_KEY
+        generateValue: true 
