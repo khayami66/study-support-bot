@@ -26,9 +26,6 @@ handler = WebhookHandler(Config.LINE_CHANNEL_SECRET)
 point_system = PointSystem()
 sheets_handler = None
 
-# グローバルスコープで初期化を必ず実行
-initialize_sheets_handler()
-
 def initialize_sheets_handler():
     """スプレッドシートハンドラーを初期化"""
     global sheets_handler
@@ -68,6 +65,9 @@ def initialize_sheets_handler():
         import traceback
         logger.error(f"詳細エラー: {traceback.format_exc()}")
         return False
+
+# グローバルスコープで初期化を必ず実行
+initialize_sheets_handler()
 
 @app.route("/callback", methods=['POST'])
 def callback():
