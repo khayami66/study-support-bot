@@ -26,6 +26,9 @@ handler = WebhookHandler(Config.LINE_CHANNEL_SECRET)
 point_system = PointSystem()
 sheets_handler = None
 
+# グローバルスコープで初期化を必ず実行
+initialize_sheets_handler()
+
 def initialize_sheets_handler():
     """スプレッドシートハンドラーを初期化"""
     global sheets_handler
@@ -269,15 +272,6 @@ if __name__ == "__main__":
     logger.info(f"  - スプレッドシート設定: {summary['sheets_configured']}")
     logger.info(f"  - 認証情報設定: {summary['credentials_configured']}")
     logger.info(f"  - ポイントルール数: {summary['point_rules_count']}")
-    
-    # スプレッドシートハンドラーの初期化
-    logger.info("\nスプレッドシートハンドラーの初期化を開始...")
-    if initialize_sheets_handler():
-        logger.info("✅ スプレッドシートハンドラーの初期化が完了しました")
-        logger.info("✅ アプリケーションが正常に起動しました")
-    else:
-        logger.warning("❌ スプレッドシートハンドラーの初期化に失敗しました")
-        logger.warning("スプレッドシート機能は利用できません")
     
     logger.info("="*60)
     
