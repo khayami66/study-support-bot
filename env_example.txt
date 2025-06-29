@@ -5,10 +5,10 @@ LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token_here
 LINE_CHANNEL_SECRET=your_line_channel_secret_here
 
 # Google Sheets API設定
-# credentials.jsonファイルをBase64エンコードした文字列
+# credentials.jsonファイルの内容をJSON文字列として設定
 # 以下のコマンドで生成できます：
-# base64 -i credentials.json | tr -d '\n'
-GOOGLE_CREDENTIALS_BASE64=your_base64_encoded_credentials_here
+# python encode_credentials.py
+GOOGLE_CREDENTIALS_JSON={"type":"service_account","project_id":"your-project-id","private_key_id":"your-private-key-id","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n","client_email":"your-service-account@your-project.iam.gserviceaccount.com","client_id":"your-client-id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/your-service-account%40your-project.iam.gserviceaccount.com"}
 # GoogleスプレッドシートのID（URLの /d/ と /edit の間の文字列）
 SPREADSHEET_ID=your_spreadsheet_id_here
 # スプレッドシート内のワークシート名

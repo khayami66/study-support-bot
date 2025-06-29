@@ -1,7 +1,6 @@
 import os
 from typing import Dict, Any
 from dotenv import load_dotenv
-import base64
 import json
 import tempfile
 import logging
@@ -13,25 +12,24 @@ logger = logging.getLogger(__name__)
 # 環境変数の読み込み
 load_dotenv()
 
-# credentials.jsonのBase64デコード生成処理
-GOOGLE_CREDENTIALS_BASE64 = os.getenv('GOOGLE_CREDENTIALS_BASE64')
+# credentials.jsonのJSON文字列からファイル生成処理
+GOOGLE_CREDENTIALS_JSON = os.getenv('GOOGLE_CREDENTIALS_JSON')
 CREDENTIALS_FILE_PATH = os.getenv('GOOGLE_SHEETS_CREDENTIALS_FILE', 'credentials.json')
 
 def create_credentials_file():
-    """Base64認証情報からcredentials.jsonファイルを作成"""
-    if GOOGLE_CREDENTIALS_BASE64:
+    """JSON文字列からcredentials.jsonファイルを作成"""
+    if GOOGLE_CREDENTIALS_JSON:
         try:
-            # Base64デコード
-            credentials_json = base64.b64decode(GOOGLE_CREDENTIALS_BASE64).decode('utf-8')
+            # JSON文字列をパース
+            credentials_info = json.loads(GOOGLE_CREDENTIALS_JSON)
             
             # 認証情報の妥当性を確認
-            credentials_info = json.loads(credentials_json)
             if 'type' not in credentials_info or credentials_info['type'] != 'service_account':
                 raise ValueError("無効なサービスアカウント認証情報です")
             
             # 一時ファイルとして作成（Render環境での権限問題を回避）
             with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
-                temp_file.write(credentials_json)
+                json.dump(credentials_info, temp_file, indent=2)
                 temp_credentials_path = temp_file.name
             
             # 環境変数を更新
@@ -50,7 +48,7 @@ def create_credentials_file():
             logger.error(f"credentials.jsonの生成に失敗しました: {e}")
             return False
     else:
-        logger.warning("GOOGLE_CREDENTIALS_BASE64が設定されていません")
+        logger.warning("GOOGLE_CREDENTIALS_JSONが設定されていません")
         return False
 
 # 認証情報ファイルの作成
@@ -155,8 +153,8 @@ class Config:
             warnings.append("本番環境ではFLASK_SECRET_KEYを変更してください")
         
         # 認証情報の確認
-        if not GOOGLE_CREDENTIALS_BASE64:
-            errors.append("GOOGLE_CREDENTIALS_BASE64が設定されていません")
+        if not GOOGLE_CREDENTIALS_JSON:
+            errors.append("GOOGLE_CREDENTIALS_JSONが設定されていません")
         elif not credentials_created:
             errors.append("認証情報ファイルの作成に失敗しました")
         elif not os.path.exists(cls.GOOGLE_SHEETS_CREDENTIALS_FILE):
@@ -186,6 +184,6 @@ class Config:
             'credentials_created': credentials_created,
             'line_configured': bool(cls.LINE_CHANNEL_ACCESS_TOKEN and cls.LINE_CHANNEL_SECRET),
             'sheets_configured': bool(cls.SPREADSHEET_ID),
-            'credentials_configured': bool(GOOGLE_CREDENTIALS_BASE64),
+            'credentials_configured': bool(GOOGLE_CREDENTIALS_JSON),
             'point_rules_count': len(cls.DEFAULT_POINT_RULES)
         } 

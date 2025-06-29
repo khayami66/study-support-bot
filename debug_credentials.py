@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-認証情報のデバッグとbase64復元を確認するスクリプト
+認証情報のデバッグとJSON文字列復元を確認するスクリプト
 Renderデプロイ時の問題解決に使用します。
 """
 
 import os
-import base64
 import json
 import tempfile
 from dotenv import load_dotenv
@@ -19,26 +18,22 @@ def debug_credentials():
     load_dotenv()
     
     # 環境変数の確認
-    google_credentials_base64 = os.getenv('GOOGLE_CREDENTIALS_BASE64')
+    google_credentials_json = os.getenv('GOOGLE_CREDENTIALS_JSON')
     credentials_file_path = os.getenv('GOOGLE_SHEETS_CREDENTIALS_FILE', 'credentials.json')
     
     print(f"1. 環境変数の確認:")
-    print(f"   GOOGLE_CREDENTIALS_BASE64: {'設定済み' if google_credentials_base64 else '未設定'}")
+    print(f"   GOOGLE_CREDENTIALS_JSON: {'設定済み' if google_credentials_json else '未設定'}")
     print(f"   GOOGLE_SHEETS_CREDENTIALS_FILE: {credentials_file_path}")
     
-    if not google_credentials_base64:
-        print("❌ GOOGLE_CREDENTIALS_BASE64が設定されていません")
+    if not google_credentials_json:
+        print("❌ GOOGLE_CREDENTIALS_JSONが設定されていません")
         return False
     
-    # Base64デコードのテスト
-    print(f"\n2. Base64デコードのテスト:")
+    # JSON文字列のテスト
+    print(f"\n2. JSON文字列のテスト:")
     try:
-        # Base64デコード
-        credentials_json = base64.b64decode(google_credentials_base64).decode('utf-8')
-        print("✅ Base64デコード成功")
-        
         # JSONパースのテスト
-        credentials_info = json.loads(credentials_json)
+        credentials_info = json.loads(google_credentials_json)
         print("✅ JSONパース成功")
         
         # 認証情報の妥当性確認
@@ -65,7 +60,7 @@ def debug_credentials():
             return False
         
     except Exception as e:
-        print(f"❌ Base64デコードまたはJSONパースに失敗: {e}")
+        print(f"❌ JSONパースに失敗: {e}")
         return False
     
     # ファイル作成のテスト
@@ -73,7 +68,7 @@ def debug_credentials():
     try:
         # 一時ファイルとして作成
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
-            temp_file.write(credentials_json)
+            json.dump(credentials_info, temp_file, indent=2)
             temp_credentials_path = temp_file.name
         
         print(f"✅ 一時ファイル作成成功: {temp_credentials_path}")
@@ -88,8 +83,7 @@ def debug_credentials():
             
             # ファイル内容の読み込みテスト
             with open(temp_credentials_path, 'r') as f:
-                test_content = f.read()
-                test_info = json.loads(test_content)
+                test_content = json.load(f)
                 print("✅ ファイル読み込みテスト成功")
             
             # 一時ファイルの削除
@@ -113,24 +107,23 @@ def restore_credentials():
     print("="*50)
     
     load_dotenv()
-    google_credentials_base64 = os.getenv('GOOGLE_CREDENTIALS_BASE64')
+    google_credentials_json = os.getenv('GOOGLE_CREDENTIALS_JSON')
     
-    if not google_credentials_base64:
-        print("❌ GOOGLE_CREDENTIALS_BASE64が設定されていません")
+    if not google_credentials_json:
+        print("❌ GOOGLE_CREDENTIALS_JSONが設定されていません")
         return False
     
     try:
-        # Base64デコード
-        credentials_json = base64.b64decode(google_credentials_base64).decode('utf-8')
+        # JSON文字列をパース
+        credentials_info = json.loads(google_credentials_json)
         
         # 認証情報の妥当性を確認
-        credentials_info = json.loads(credentials_json)
         if 'type' not in credentials_info or credentials_info['type'] != 'service_account':
             raise ValueError("無効なサービスアカウント認証情報です")
         
         # 一時ファイルとして作成
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
-            temp_file.write(credentials_json)
+            json.dump(credentials_info, temp_file, indent=2)
             temp_credentials_path = temp_file.name
         
         # 環境変数を更新
@@ -164,7 +157,7 @@ def main():
                 print("❌ 復元に失敗しました")
     else:
         print("\n❌ デバッグ結果: 認証情報に問題があります")
-        print("環境変数 GOOGLE_CREDENTIALS_BASE64 を確認してください")
+        print("環境変数 GOOGLE_CREDENTIALS_JSON を確認してください")
 
 if __name__ == "__main__":
     main() 

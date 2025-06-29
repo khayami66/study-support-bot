@@ -1,6 +1,5 @@
 import os
 import json
-import base64
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from google.oauth2.service_account import Credentials
@@ -52,17 +51,16 @@ class SheetsHandler:
                 except Exception as e:
                     logger.warning(f"ファイルからの認証情報読み込みに失敗: {e}")
             
-            # 2. ファイルが存在しない場合、Base64認証情報から直接認証情報を作成
+            # 2. ファイルが存在しない場合、JSON文字列から直接認証情報を作成
             if not credentials:
-                google_credentials_base64 = os.getenv('GOOGLE_CREDENTIALS_BASE64')
-                if not google_credentials_base64:
-                    raise ValueError("認証情報ファイルが見つからず、GOOGLE_CREDENTIALS_BASE64も設定されていません")
+                google_credentials_json = os.getenv('GOOGLE_CREDENTIALS_JSON')
+                if not google_credentials_json:
+                    raise ValueError("認証情報ファイルが見つからず、GOOGLE_CREDENTIALS_JSONも設定されていません")
                 
                 try:
-                    logger.info("Base64認証情報から認証情報を作成中...")
-                    # Base64デコード
-                    credentials_json = base64.b64decode(google_credentials_base64).decode('utf-8')
-                    credentials_info = json.loads(credentials_json)
+                    logger.info("JSON文字列から認証情報を作成中...")
+                    # JSON文字列をパース
+                    credentials_info = json.loads(google_credentials_json)
                     
                     # 認証情報の妥当性を確認
                     if 'type' not in credentials_info or credentials_info['type'] != 'service_account':
@@ -72,10 +70,10 @@ class SheetsHandler:
                     credentials = Credentials.from_service_account_info(
                         credentials_info, scopes=SCOPES
                     )
-                    logger.info("Base64認証情報から認証が完了しました")
+                    logger.info("JSON文字列から認証が完了しました")
                     
                 except Exception as e:
-                    logger.error(f"Base64認証情報の処理に失敗: {e}")
+                    logger.error(f"JSON文字列の処理に失敗: {e}")
                     raise
             
             # サービスオブジェクトの作成

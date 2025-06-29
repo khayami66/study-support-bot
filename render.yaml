@@ -14,7 +14,7 @@ services:
         sync: false
       - key: LINE_CHANNEL_SECRET
         sync: false
-      - key: GOOGLE_CREDENTIALS_BASE64
+      - key: GOOGLE_CREDENTIALS_JSON
         sync: false
       - key: SPREADSHEET_ID
         sync: false

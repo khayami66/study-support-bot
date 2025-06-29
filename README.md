@@ -39,23 +39,19 @@ Renderダッシュボードの「Environment」タブで以下の環境変数を
 ```
 LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token_here
 LINE_CHANNEL_SECRET=your_line_channel_secret_here
-GOOGLE_CREDENTIALS_BASE64=your_base64_encoded_credentials_here
+GOOGLE_CREDENTIALS_JSON=your_json_credentials_string_here
 SPREADSHEET_ID=your_spreadsheet_id_here
 WORKSHEET_NAME=ポイント記録
 FLASK_ENV=production
 HOST=0.0.0.0
 ```
 
-#### 4. Google認証情報のBase64エンコード
-1. `credentials.json`ファイルをBase64エンコード：
+#### 4. Google認証情報のJSON文字列変換
+1. `credentials.json`ファイルをJSON文字列に変換：
    ```bash
-   # macOS/Linux
-   base64 -i credentials.json | tr -d '\n'
-   
-   # Windows (PowerShell)
-   [Convert]::ToBase64String([IO.File]::ReadAllBytes("credentials.json"))
+   python encode_credentials.py
    ```
-2. 出力された文字列を`GOOGLE_CREDENTIALS_BASE64`環境変数に設定
+2. 出力された文字列を`GOOGLE_CREDENTIALS_JSON`環境変数に設定
 
 #### 5. LINE Webhook URLの設定
 1. Renderでデプロイが完了したら、表示されるURLをコピー
@@ -196,7 +192,7 @@ study_support/
 
 認証情報に問題がある場合は、以下のデバッグツールを使用してください：
 
-#### 1. 認証情報のエンコード
+#### 1. 認証情報のJSON文字列変換
 ```bash
 python encode_credentials.py
 ```
@@ -213,7 +209,7 @@ python debug_credentials.py
 **症状**: 「スプレッドシートの設定が完了していません」というメッセージが表示される
 
 **解決方法**:
-1. `GOOGLE_CREDENTIALS_BASE64`環境変数が正しく設定されているか確認
+1. `GOOGLE_CREDENTIALS_JSON`環境変数が正しく設定されているか確認
 2. スプレッドシートIDが正しく設定されているか確認
 3. サービスアカウントにスプレッドシートの編集権限があるか確認
 4. `/config`エンドポイントで詳細なエラー情報を確認
@@ -234,7 +230,7 @@ python debug_credentials.py
 **解決方法**:
 1. 全ての必要な環境変数が設定されているか確認
 2. デフォルト値（`your_xxx_here`）が実際の値に変更されているか確認
-3. Base64エンコードが正しく行われているか確認
+3. JSON文字列変換が正しく行われているか確認
 
 #### 4. Google Sheets API接続エラー
 
@@ -242,7 +238,7 @@ python debug_credentials.py
 
 **解決方法**:
 1. Google Cloud ConsoleでGoogle Sheets APIが有効化されているか確認
-2. サービスアカウントキーが正しくBase64エンコードされているか確認
+2. サービスアカウントキーが正しくJSON文字列変換されているか確認
 3. スプレッドシートにサービスアカウントの編集権限が付与されているか確認
 
 #### 5. Renderデプロイエラー
