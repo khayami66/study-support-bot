@@ -96,15 +96,19 @@ def handle_message(event):
         message_text = event.message.text
         
         logger.info(f"受信メッセージ: {message_text} (ユーザー: {user_id})")
+        logger.info(f"sheets_handler初期化状態: {sheets_handler is not None}")
         
         # ヘルプコマンドの処理
         if message_text.lower() in ['#help', '#ヘルプ', 'help', 'ヘルプ']:
+            logger.info("ヘルプコマンドを処理中...")
             help_message = point_system.get_help_message()
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=help_message))
+            logger.info("ヘルプメッセージを送信しました")
             return
         
         # ポイント確認コマンドの処理
         if message_text.lower() in ['#ポイント', '#point', 'ポイント', 'point']:
+            logger.info("ポイント確認コマンドを処理中...")
             if sheets_handler:
                 total_points = sheets_handler.get_total_points(user_id)
                 response_message = f"現在の合計ポイント: {total_points}pt 🎯"
@@ -112,10 +116,12 @@ def handle_message(event):
                 response_message = "スプレッドシートに接続できません😅\n設定を確認してください。"
             
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=response_message))
+            logger.info("ポイント確認メッセージを送信しました")
             return
         
         # 履歴確認コマンドの処理
         if message_text.lower() in ['#履歴', '#history', '履歴', 'history']:
+            logger.info("履歴確認コマンドを処理中...")
             if sheets_handler:
                 history = sheets_handler.get_user_history(user_id, limit=Config.DEFAULT_HISTORY_LIMIT)
                 if history:
@@ -129,39 +135,50 @@ def handle_message(event):
                 response_message = "スプレッドシートに接続できません😅\n設定を確認してください。"
             
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=response_message))
+            logger.info("履歴確認メッセージを送信しました")
             return
         
         # ポイントルールの解析
+        logger.info("ポイントルールの解析を開始...")
         matches = point_system.parse_message(message_text)
+        logger.info(f"マッチしたルール数: {len(matches) if matches else 0}")
         
         if not matches:
             # ポイント対象の行動が見つからない場合
+            logger.info("ポイント対象の行動が見つかりませんでした")
             response_message = "ポイント対象の行動が見つからなかったよ😅\n\n" + point_system.get_help_message()
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=response_message))
+            logger.info("ヘルプメッセージを送信しました")
             return
         
         # スプレッドシートハンドラーが初期化されていない場合
         if not sheets_handler:
+            logger.warning("スプレッドシートハンドラーが初期化されていません")
             response_message = "申し訳ありません。スプレッドシートの設定が完了していません😅\n\n設定を確認してください。"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=response_message))
+            logger.info("エラーメッセージを送信しました")
             return
         
         # 各マッチしたルールに対してポイントを記録
+        logger.info("ポイント記録を開始...")
         total_points_earned = 0
         recorded_actions = []
         
         for keyword, points, _ in matches:
             action_description = point_system.get_point_rule(keyword)['description']
+            logger.info(f"記録中: {action_description} (+{points}pt)")
             
             # スプレッドシートに記録
             if sheets_handler.record_action(user_id, action_description, points):
                 total_points_earned += points
                 recorded_actions.append(f"{action_description} (+{points}pt)")
+                logger.info(f"記録成功: {action_description}")
             else:
                 logger.error(f"行動記録に失敗: {action_description}")
         
         # 現在の合計ポイントを取得
         current_total = sheets_handler.get_total_points(user_id)
+        logger.info(f"現在の合計ポイント: {current_total}pt")
         
         # 返信メッセージの生成
         if total_points_earned > 0:
@@ -174,7 +191,9 @@ def handle_message(event):
             response_message = "ポイントの記録に失敗しました😅"
         
         # LINEに返信
+        logger.info(f"返信メッセージを送信: {response_message}")
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=response_message))
+        logger.info("返信メッセージの送信が完了しました")
         
         # 100ptごと達成をチェック（前回の合計ポイントと比較）
         previous_total = current_total - total_points_earned
@@ -195,6 +214,8 @@ def handle_message(event):
         
     except Exception as e:
         logger.error(f"メッセージ処理エラー: {e}")
+        import traceback
+        logger.error(f"詳細エラー: {traceback.format_exc()}")
         try:
             error_message = "申し訳ありません。エラーが発生しました😅"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=error_message))
